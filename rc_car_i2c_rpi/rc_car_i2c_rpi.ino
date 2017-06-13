@@ -1,16 +1,8 @@
 #include "rc_car_i2c_rpi.h"
 
-#define USE_I2C_
-#define USE_SONAR_
-
-#ifdef USE_I2C_
 #include <Wire.h>
 
 #define SLAVE_ADDRESS 0x04
-#endif
-
-#define BAD_ 20
-#define OK_ 1
 
 const int waitDelay = 1000;
 unsigned long lastMillis = 0;
@@ -23,10 +15,8 @@ int curDir = CENTER_;
 // ranges for left and right:
 //const float vFarLeftMax = 4.0;
 
-#ifdef USE_I2C_
 volatile int command;
 volatile int data;
-#endif
 
 const byte anaPin = A1;
 
@@ -34,39 +24,32 @@ const byte E1 = 5;
 const byte I1 = 2;
 const byte I2 = 3;
 
-#ifdef USE_SONAR_
-
-#define NUM_SONAR 3
+#define NUM_SONAR 4
 
 #define TRIG 0
 #define ECHO 1
 
 // trigger echo
-const byte sonarPins[3][2] = {
-  { 7,  8 },
-  { 9, 10 },
-  { 11, 12 }
+const byte sonarPins[NUM_SONAR][2] = {
+  {  7,  8 }, // left sensor
+  {  9, 10 }, // center sensor
+  { 11, 12 }, // right sensor
+  {  4,  6 }  // rear sensor
 };
-
-#endif
 
 void setup()
 {
   pinMode(LED_BUILTIN, OUTPUT);
-#ifdef USE_I2C_
   // initialize i2c as slave
   Wire.begin(SLAVE_ADDRESS);
   // define callbacks for i2c communication
   Wire.onReceive(receiveData);
   Wire.onRequest(sendData);
-#endif
-#ifdef USE_SONAR_
   for (uint8_t i = 0; i < NUM_SONAR; i++)
   {
     pinMode(sonarPins[i][TRIG], OUTPUT);
     pinMode(sonarPins[i][ECHO], INPUT);
   }
-#endif
 }
 
 void loop()
@@ -86,7 +69,6 @@ void loop()
   }
 }
 
-#ifdef USE_I2C_
 void receiveData(int byteCount)
 {
   while (Wire.available())
@@ -94,14 +76,13 @@ void receiveData(int byteCount)
     command = Wire.read();
     switch (command)
     {
-#ifdef USE_SONAR_
       case CHECK_SONAR:
         boolean f;
         f = true;
-        for (int i = CHECK_SONAR_LEFT; i <= CHECK_SONAR_RIGHT; i++)
+        for (int i = CHECK_SONAR_LEFT; i <= CHECK_SONAR_REAR; i++)
         {
           int r = checkDistance(i);
-          if (r == i + 7)
+          if (r == i + 8)
           {
             data = r;
             f = false;
@@ -111,10 +92,9 @@ void receiveData(int byteCount)
         if (f)
           data = OK_;
         break;
-      case CHECK_SONAR_LEFT: case CHECK_SONAR_CENTER: case CHECK_SONAR_RIGHT:
+      case CHECK_SONAR_LEFT: case CHECK_SONAR_CENTER: case CHECK_SONAR_RIGHT: case CHECK_SONAR_REAR:
         data = checkDistance(command);
         break;
-#endif
       case GO_RIGHT:
         data = runServo(RIGHT_);
         break;
@@ -137,10 +117,8 @@ void receiveData(int byteCount)
 
 void sendData()
 {
-  //Wire.write((byte *) &myfloat, FLOATS_SENT * sizeof(float));
   Wire.write(data);
 }
-#endif
 
 float getData()
 {
@@ -185,8 +163,6 @@ void setCenter()
     else
     {
       runServo(CENTER_);
-      //if (cd == RIGHT_ || cd == FAR_RIGHT_)        runServo(LEFT_);
-      //else if (cd == LEFT_ || cd == FAR_LEFT_)        runServo(RIGHT_);
       cd = getDir();
     }
   }
@@ -219,15 +195,6 @@ int runServo(int dir)
         ret_ = c;
       else
       {
-        /*
-          runSonar(2); // 2 = right sonar
-          if (servoStatus == SONAR_RIGHT)
-          {
-          ret_ = servoStatus;
-          }
-          else
-          {
-        */
         if (c == CENTER_)
         {
           while (getDir() != FAR_RIGHT_)
@@ -246,7 +213,6 @@ int runServo(int dir)
             analogWrite(E1, 255);
           }
         }
-        //}
         ret_ = getDir();
       }
       break;
@@ -314,7 +280,6 @@ int runServo(int dir)
   return ret_;
 }
 
-#ifdef USE_SONAR_
 int checkDistance(int sonarNum)
 {
   long duration;
@@ -324,7 +289,7 @@ int checkDistance(int sonarNum)
   int ret = OK_;
   int sonarPin = sonarNum - 3;
 
-  if (sonarPin < 0 || sonarPin > 2)
+  if (sonarPin < 0 || sonarPin > NUM_SONAR)
     return BAD_;
   // The sensor is triggered by a HIGH pulse of 10 or more microseconds.
   // Give a short LOW pulse beforehand to ensure a clean HIGH pulse:
@@ -342,8 +307,7 @@ int checkDistance(int sonarNum)
   cm = duration / 58; //(duration/2) / 29.1;
   //inches = (duration / 2) / 74; // 37
   if (cm < threshHold)
-    ret = sonarNum + 7;
+    ret = sonarNum + 8;
   return ret;
 }
-#endif
 
