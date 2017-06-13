@@ -30,16 +30,21 @@ const byte I2 = 3;
 #define ECHO 1
 
 // trigger echo
+// output  input
 const byte sonarPins[NUM_SONAR][2] = {
-  {  7,  8 }, // left sensor
-  {  9, 10 }, // center sensor
-  { 11, 12 }, // right sensor
-  {  4,  6 }  // rear sensor
+  {  9,  8 }, // left sensor
+  { 11, 10 }, // center sensor
+  { 13, 12 }, // right sensor
+  { A2, A3 }  // rear sensor
 };
 
 void setup()
 {
   pinMode(LED_BUILTIN, OUTPUT);
+  // because we are only using half of the h bridge; ground the other half
+  pinMode(4, OUTPUT); digitalWrite(4, LOW);
+  pinMode(6, OUTPUT); digitalWrite(6, LOW);
+  pinMode(7, OUTPUT); digitalWrite(7, LOW);
   // initialize i2c as slave
   Wire.begin(SLAVE_ADDRESS);
   // define callbacks for i2c communication
